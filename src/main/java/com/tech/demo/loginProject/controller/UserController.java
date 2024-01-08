@@ -54,4 +54,16 @@ public class UserController {
     }
 
 
+    @PostMapping("/dashboard")
+    public ResponseEntity<?> checkDashboard(@RequestBody UserReqDto userReqDto){
+        Optional<Boolean> result  = userService.checkDashboard(userReqDto);
+        if(result.isPresent()){
+            return new ResponseEntity<>(result.get(), HttpStatus.OK);
+        }
+        else{
+            return new ResponseEntity<>("Could not create user due to some error.", HttpStatus.INTERNAL_SERVER_ERROR);
+
+        }
+    }
+
 }

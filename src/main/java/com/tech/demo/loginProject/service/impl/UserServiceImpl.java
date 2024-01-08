@@ -2,10 +2,9 @@ package com.tech.demo.loginProject.service.impl;
 
 import com.tech.demo.loginProject.dtos.UserReqDto;
 import com.tech.demo.loginProject.dtos.UserResDto;
-import com.tech.demo.loginProject.model.LoggingStatus;
-import com.tech.demo.loginProject.model.User;
-import com.tech.demo.loginProject.model.UserStatus;
+import com.tech.demo.loginProject.model.*;
 import com.tech.demo.loginProject.repository.UserRepository;
+import com.tech.demo.loginProject.service.SessionService;
 import com.tech.demo.loginProject.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +16,8 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
     @Autowired
     UserRepository userRepository;
+    @Autowired
+    SessionService sessionService;
 
     @Override
     public UserResDto getUser(Long userId) {
@@ -35,6 +36,7 @@ public class UserServiceImpl implements UserService {
         user.setCreatedDttm(new Date());
         user.setUserStatus(UserStatus.ACTIVE);
         user.setIsDeleted(false);
+        user.setNumTries(0);
         User savedUser = userRepository.save(user);
         UserResDto userResDto = new UserResDto();
         userResDto.setUserName(savedUser.getUserName());
@@ -50,28 +52,55 @@ public class UserServiceImpl implements UserService {
             return null;
         }
         User user = userOptional.get();
-        if(user.getNumTries()==3){
+        if(user.getUserStatus()==UserStatus.LOCKED){
+            long timeDifference = new Date().getTime()-user.getLastTriedDate().getTime();
+            long diffInMin = (timeDifference/ (1000 * 60))% 60;
+            if(diffInMin>15){
+                user.setNumTries(0);
+                user.setUserStatus(UserStatus.ACTIVE);
+            }
+            else return Optional.of(LoggingStatus.LOGGED_OUT);
 
         }
+
         Optional<LoggingStatus> response = null;
         if(user.getPassword().equals(userReqDto.getPassword())){
+            Session session = sessionService.loginSession(user);
+            user.setSession(session);
             user.setLoggingStatus(LoggingStatus.LOGGED_IN);
             user.setNumTries(0);
             response=  Optional.of(LoggingStatus.LOGGED_IN);
         }
         else{
             user.setNumTries(user.getNumTries()+1);
-            if(user.getNumTries()==3){
+            if(user.getNumTries()>=3){
                 user.setLoggingStatus(LoggingStatus.LOCKED);
                 response =  Optional.of(LoggingStatus.LOCKED);
                 user.setLastTriedDate(new Date());
             }
             else{
+                user.setSession(sessionService.logoutSession(user));
+
                 user.setLoggingStatus(LoggingStatus.LOGGED_OUT);
                 response =  Optional.of(LoggingStatus.LOGGED_OUT);
             }
         }
         User savedUser = userRepository.save(user);
         return response;
+    }
+
+    @Override
+    public Optional<Boolean> checkDashboard(UserReqDto userReqDto) {
+        Optional<User> userOptional = userRepository.findByUserName(userReqDto.getUserName());
+        if(userOptional.isEmpty()){
+            return null;
+        }
+        User user = userOptional.get();
+        if(user.getSession().getSessionStatus()== SessionStatus.ACTIVE){
+            return Optional.of(true);
+        }
+        else{
+            return Optional.of(false);
+        }
     }
 }

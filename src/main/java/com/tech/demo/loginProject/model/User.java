@@ -21,4 +21,5 @@ public class User extends BaseModel{
     LoggingStatus loggingStatus;
     Date lastTriedDate;
     Integer numTries;
+    Session session;
 }

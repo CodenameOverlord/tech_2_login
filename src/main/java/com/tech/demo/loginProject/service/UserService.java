@@ -11,4 +11,6 @@ public interface UserService {
     Optional<UserResDto> createUser(UserReqDto userReqDto);
 
     Optional<LoggingStatus> loginUser(UserReqDto userReqDto);
+
+    Optional<Boolean> checkDashboard(UserReqDto userReqDto);
 }
